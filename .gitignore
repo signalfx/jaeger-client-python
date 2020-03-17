@@ -1,6 +1,9 @@
 *.py[cod]
 *.orig
 
+# pyenv
+.python-version
+
 # C extensions
 *.so
 
@@ -22,6 +25,7 @@ var
 
 __pycache__
 .cache/
+.pytest_cache
 
 # Installer logs
 pip-log.txt

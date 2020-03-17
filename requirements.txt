@@ -1,4 +1,4 @@
 # Modified by SignalFx
 # add dependencies in setup.py
-git+https://github.com/rmfitzpatrick/opentracing-python@flask_scope_manager#opentracing
+opentracing>=2.0,<2.4
 -e .

@@ -40,7 +40,7 @@ setup(
     install_requires=[
         'thrift',
         'requests',
-        'opentracing>=2.0,<2.1',
+        'opentracing>=2.0,<2.4',
     ],
     # Uncomment below if need to test with unreleased version of opentracing
     # dependency_links=[
