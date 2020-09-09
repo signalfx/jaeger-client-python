@@ -54,6 +54,7 @@ class Tracer(opentracing.Tracer):
         max_tag_value_length=constants.MAX_TAG_VALUE_LENGTH,
         throttler=None,
         scope_manager=None,
+        root_span_tags=None,
     ):
         self.service_name = service_name
         self.reporter = reporter
@@ -66,6 +67,7 @@ class Tracer(opentracing.Tracer):
         self.max_tag_value_length = max_tag_value_length
         self.max_trace_id_bits = constants._max_trace_id_bits if generate_128bit_trace_id \
             else constants._max_id_bits
+        self.root_span_tags = root_span_tags
         self.codecs = {
             Format.TEXT_MAP: TextCodec(
                 url_encoding=False,
@@ -147,6 +149,11 @@ class Tracer(opentracing.Tracer):
 
         if self.active_span is not None and not ignore_active_span:
             parent = self.active_span
+
+        tags = tags or {}
+        is_local_root = not parent or isinstance(parent, SpanContext)
+        if is_local_root and self.root_span_tags:
+            tags.update(self.root_span_tags)
 
         if references:
             if isinstance(references, list):

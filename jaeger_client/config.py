@@ -115,12 +115,14 @@ class Config(object):
             metrics=Metrics(),
             logger=logger if self.logging else None,
         )
+        self._root_span_tags = config.get('root_span_tags', {})
 
     def _validate_config(self, config):
         allowed_keys = ['logging',
                         'local_agent',
                         'sampler',
                         'tags',
+                        'root_span_tags',
                         'enabled',
                         'reporter_batch_size',
                         'reporter_queue_size',
@@ -460,6 +462,7 @@ class Config(object):
             baggage_header_prefix=self.baggage_header_prefix,
             debug_id_header=self.debug_id_header,
             tags=self.tags,
+            root_span_tags=self._root_span_tags,
             max_tag_value_length=self.max_tag_value_length,
             extra_codecs=self.propagation,
             throttler=throttler,
