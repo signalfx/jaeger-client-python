@@ -24,6 +24,7 @@ from opentracing import Format, child_of
 from opentracing.ext import tags as ext_tags
 from jaeger_client import ConstSampler, SpanContext, Tracer
 from jaeger_client import constants as c
+from jaeger_client.codecs import B3Codec
 
 
 def find_tag(span, key, tag_type='str'):
@@ -246,6 +247,46 @@ def test_tracer_tags_on_root_span(span_type, expected_tags):
 
             assert found_tag == value, \
                 'test (%s): expecting tag %s=%s' % (span_type, key, value)
+
+
+def test_tracer_local_root_span_tags():
+    reporter = mock.MagicMock()
+    sampler = ConstSampler(True)
+
+    tracer = Tracer(service_name='x',
+                    reporter=reporter,
+                    sampler=sampler,
+                    root_span_tags={'root-tag1': 'value1'})
+
+
+    root = tracer.start_span('root')
+    child = tracer.start_span('child', child_of=root)
+    child.finish()
+    root.finish()
+
+    tag = find_tag(root, "root-tag1")
+    assert tag is not None
+    assert tag == "value1"
+
+    tag = find_tag(child, "root-tag1")
+    assert tag is None
+
+
+    tracer.reporter.report_span.assert_called_once()
+
+    ctx = B3Codec().extract({
+        "X-B3-Sampled": "1",
+        "X-B3-Spanid": "60e6deb669a8497a",
+        "X-B3-Traceid": "9e64f559d130e123",
+        "X-B3-Parentspanid": "42b6fe7d9f34b1e8"
+    })
+    assert ctx is not None
+    rpc_span = tracer.start_span('child', child_of=ctx)
+    rpc_span.finish()
+
+    tag = find_tag(rpc_span, "root-tag1")
+    assert tag is not None
+    assert tag == "value1"
 
 
 def test_tracer_override_codecs():
