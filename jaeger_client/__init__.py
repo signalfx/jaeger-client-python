@@ -26,7 +26,7 @@ sys.path.append(modpath.__path__[0])
 # w/ beta pre-release segment:
 # x.y.z.devA -> x.y.zbA.devB
 # Updated dev release (B) is for tracking changes against upstream version
-__version__ = '3.13.1b0.dev3'
+__version__ = '3.13.1b0.dev4'
 
 from .tracer import Tracer  # noqa
 from .config import Config  # noqa
