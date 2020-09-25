@@ -92,8 +92,8 @@ class Reporter(NullReporter):
         self.queue_capacity = queue_capacity
         self.metrics_factory = metrics_factory or LegacyMetricsFactory(metrics or Metrics())
         self.metrics = ReporterMetrics(self.metrics_factory)
-        self.error_reporter = error_reporter or ErrorReporter(Metrics())
         self.logger = kwargs.get('logger', default_logger)
+        self.error_reporter = error_reporter or ErrorReporter(self.logger)
 
         if queue_capacity < self._sender.batch_size:
             raise ValueError('Queue capacity cannot be less than sender batch size')
@@ -164,6 +164,7 @@ class Reporter(NullReporter):
                     spans_appended = 0
                 else:
                     if spans_reported:
+                        self.logger.info('Succesfully report %d spans', spans_reported)
                         self.metrics.reporter_success(spans_reported)
                         for _ in range(spans_reported):
                             self.queue.task_done()
@@ -182,6 +183,8 @@ class Reporter(NullReporter):
                     for _ in range(spans_appended):
                         self.queue.task_done()
                 else:
+                    if spans_reported:
+                        self.logger.info('Succesfully report %d spans', spans_reported)
                     self.metrics.reporter_success(spans_reported)
                     for _ in range(spans_reported):
                         self.queue.task_done()

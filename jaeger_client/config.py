@@ -27,7 +27,6 @@ from .throttler import RemoteThrottler
 from .reporter import (
     Reporter,
     CompositeReporter,
-    LoggingReporter,
 )
 from .senders import HTTPSender, UDPSender
 from .sampler import (
@@ -111,9 +110,9 @@ class Config(object):
         if not self._service_name:
             raise ValueError('service_name required in the config or param')
 
+        self.logger = config.get('logger', logger)
         self._error_reporter = ErrorReporter(
-            metrics=Metrics(),
-            logger=logger if self.logging else None,
+            logger=self.logger if self.logging else None,
         )
         self._root_span_tags = config.get('root_span_tags', {})
 
@@ -380,7 +379,7 @@ class Config(object):
 
         with Config._initialized_lock:
             if Config._initialized:
-                logger.warn('Jaeger tracer already initialized, skipping')
+                self.logger.warn('Jaeger tracer already initialized, skipping')
                 return
             Config._initialized = True
 
@@ -398,7 +397,7 @@ class Config(object):
             reader=bool(self.jaeger_endpoint)
         )
         if self.jaeger_endpoint:
-            logger.info('Initializing reporter with HTTP sender.')
+            self.logger.info('Initializing reporter with HTTP sender.')
             sender = HTTPSender(
                 endpoint=self.jaeger_endpoint,
                 auth_token=self.jaeger_auth_token,
@@ -407,7 +406,7 @@ class Config(object):
                 batch_size=self.reporter_batch_size
             )
         else:
-            logger.info('Initializing reporter with UDP sender.')
+            self.logger.info('Initializing reporter with UDP sender.')
             sender = UDPSender(channel, batch_size=self.reporter_batch_size)
 
         sampler = self.sampler
@@ -415,31 +414,28 @@ class Config(object):
             sampler = RemoteControlledSampler(
                 channel=channel,
                 service_name=self.service_name,
-                logger=logger,
+                logger=self.logger,
                 metrics_factory=self._metrics_factory,
                 error_reporter=self.error_reporter,
                 sampling_refresh_interval=self.sampling_refresh_interval,
                 max_operations=self.max_operations)
-        logger.info('Using sampler %s', sampler)
+        self.logger.info('Using sampler %s', sampler)
 
         reporter = Reporter(
             sender=sender,
             queue_capacity=self.reporter_queue_size,
             flush_interval=self.reporter_flush_interval,
-            logger=logger,
+            logger=self.logger,
             metrics_factory=self._metrics_factory,
             error_reporter=self.error_reporter,
         )
-
-        if self.logging:
-            reporter = CompositeReporter(reporter, LoggingReporter(logger))
 
         if not self.throttler_group() is None:
             throttler = RemoteThrottler(
                 channel,
                 self.service_name,
                 refresh_interval=self.throttler_refresh_interval,
-                logger=logger,
+                logger=self.logger,
                 metrics_factory=self._metrics_factory,
                 error_reporter=self.error_reporter)
         else:
@@ -471,7 +467,7 @@ class Config(object):
 
     def _initialize_global_tracer(self, tracer):
         opentracing.tracer = tracer
-        logger.info('opentracing.tracer initialized to %s[app_name=%s]',
+        self.logger.info('opentracing.tracer initialized to %s[app_name=%s]',
                     tracer, self.service_name)
 
     def _create_local_agent_channel(self, reader=False):
@@ -483,10 +479,10 @@ class Config(object):
         :param self: instance of Config
         """
         if reader:
-            logger.info('Initializing Jaeger Tracer with HTTP reporter')
+            self.logger.info('Initializing Jaeger Tracer with HTTP reporter')
             Agent = LocalAgentReader
         else:
-            logger.info('Initializing Jaeger Tracer with UDP reporter')
+            self.logger.info('Initializing Jaeger Tracer with UDP reporter')
             Agent = LocalAgentSender
 
         return Agent(

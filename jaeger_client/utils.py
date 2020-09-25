@@ -30,24 +30,14 @@ class ErrorReporter(object):
     N.B. metrics will be deprecated in the future
     """
 
-    def __init__(self, metrics, logger=None, log_interval_minutes=15):
+    def __init__(self, logger=None):
         self.logger = logger
-        self.log_interval_minutes = log_interval_minutes
-        self._last_error_reported_at = time.time()
 
     def error(self, *args):
         if self.logger is None:
             return
 
-        next_logging_deadline = \
-            self._last_error_reported_at + (self.log_interval_minutes * 60)
-        current_time = time.time()
-        if next_logging_deadline >= current_time:
-            # If we aren't yet at the next logging deadline
-            return
-
         self.logger.error(*args)
-        self._last_error_reported_at = current_time
 
 
 def get_boolean(string, default):
