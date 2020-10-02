@@ -23,6 +23,7 @@ import collections
 
 import mock
 import jaeger_client.reporter
+from jaeger_client import thrift
 
 from jaeger_client import Span, SpanContext
 from jaeger_client.metrics import LegacyMetricsFactory, Metrics
@@ -193,8 +194,7 @@ class TestReporter(object):
 
     def test_sender_flush_errors_handled_with_partial_batch(self, request):
         reporter, sender = self._new_reporter(request, batch_size=100, flush=.5)
-        reporter.error_reporter = ErrorReporter(
-            metrics=Metrics(), logger=logging.getLogger())
+        reporter.error_reporter = ErrorReporter(logger=logging.getLogger())
         reporter._sender.send = mock.MagicMock(side_effect=ValueError())
         for i in range(50):
             reporter.report_span(self._new_span(str(i)))
@@ -205,8 +205,7 @@ class TestReporter(object):
 
     def test_submit_failure(self, request):
         reporter, sender = self._new_reporter(request, batch_size=1)
-        reporter.error_reporter = ErrorReporter(
-            metrics=Metrics(), logger=logging.getLogger())
+        reporter.error_reporter = ErrorReporter(logger=logging.getLogger())
 
         reporter_failure_key = 'jaeger:reporter_spans.result_err'
         assert reporter_failure_key not in reporter.metrics_factory.counters
@@ -295,6 +294,46 @@ class TestReporter(object):
         reporter.close()
         assert reporter.queue.qsize() == 0, 'all spans drained'
         assert count[0] == 4, 'last span submitted in one extrac batch'
+
+    def test_force_flush(self, request):
+        block_for = 0
+        exported = []
+        def send(batch):
+            time.sleep(block_for)
+            for span in batch.spans:
+                exported.append(span)
+            return 1
+
+        reporter, sender = self._new_reporter(request, batch_size=100, flush=99999, send_method=send)
+        span_1 = self._new_span('10')
+        reporter.report_span(span_1)
+
+        then = time.time()
+        reporter.flush()
+        elapsed = time.time() - then
+        assert elapsed < 0.1
+        assert len(exported) == 1
+
+        batch = thrift.make_jaeger_batch(spans=[span_1], process=None)
+        assert exported[0] == batch.spans[0]
+
+        span_2 = self._new_span('20')
+        span_3 = self._new_span('30')
+
+        reporter.report_span(span_2)
+        reporter.report_span(span_3)
+
+        block_for = 0.5
+        exported = []
+        then = time.time()
+        reporter.flush()
+        elapsed = time.time() - then
+        assert elapsed > 0.5
+        assert len(exported) == 2
+
+        batch = thrift.make_jaeger_batch(spans=[span_2, span_3], process=None)
+        assert exported[0] == batch.spans[0]
+        assert exported[1] == batch.spans[1]
 
     def test_flush_interval(self, request):
         reporter_store = [None]

@@ -268,6 +268,9 @@ class Tracer(opentracing.Tracer):
             raise UnsupportedFormatException(format)
         return codec.extract(carrier)
 
+    def flush(self):
+        return self.reporter.flush()
+
     def close(self):
         """
         Perform a clean shutdown of the tracer, flushing any traces that

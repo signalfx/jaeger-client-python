@@ -100,6 +100,7 @@ class Reporter(NullReporter):
 
         self.queue = queue.Queue(maxsize=queue_capacity)
         self.stop = object()  # sentinel
+        self.flusher = object()
         self.stopped = False
         self.stop_lock = Lock()
         self.flush_interval = flush_interval or None
@@ -151,6 +152,10 @@ class Reporter(NullReporter):
                     self.queue.task_done()
                     break
 
+                if span == self.flusher:
+                    self.queue.task_done()
+                    break
+
                 spans_appended += 1
                 try:
                     spans_reported = self._sender.append(span)
@@ -194,6 +199,10 @@ class Reporter(NullReporter):
                 break
 
         self.logger.info('Span publisher exited')
+
+    def flush(self):
+        self.queue.put(self.flusher)
+        self.queue.join()
 
     def close(self):
         """
